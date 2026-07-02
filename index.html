@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>HYPERSCAN — learn to see in 4D</title>
+<meta name="description" content="A shape from a higher dimension is passing through your world. You can only see one slice at a time. Scan it. Know it.">
+<meta name="theme-color" content="#04060c">
+<meta property="og:title" content="HYPERSCAN — learn to see in 4D">
+<meta property="og:description" content="A cute little game that teaches you to think in four dimensions, one cross-section at a time.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='36' height='36' fill='none' stroke='%2350d8ff' stroke-width='4'/%3E%3Crect x='22' y='22' width='36' height='36' fill='none' stroke='%23ff7a3a' stroke-width='4'/%3E%3Cline x1='8' y1='8' x2='22' y2='22' stroke='%23bb55ee' stroke-width='4'/%3E%3Cline x1='44' y1='8' x2='58' y2='22' stroke='%23bb55ee' stroke-width='4'/%3E%3Cline x1='8' y1='44' x2='22' y2='58' stroke='%23bb55ee' stroke-width='4'/%3E%3Cline x1='44' y1='44' x2='58' y2='58' stroke='%23bb55ee' stroke-width='4'/%3E%3C/svg%3E">
+<style>
+:root{
+  --cyan:#50d8ff; --warm:#ff7a3a; --mag:#bb55ee;
+  --ink:#dfeaf2; --dim:#7d93a6; --bg:#04060c;
+  --panel:rgba(10,16,28,.72); --line:rgba(90,180,220,.22);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color:var(--ink);
+  -webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  overscroll-behavior:none;
+}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#c.grabbing{cursor:grabbing}
+#vignette{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 42%,transparent 55%,rgba(0,0,5,.55) 100%)}
+#flash{position:fixed;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at 50% 45%,rgba(120,255,200,.28),transparent 70%)}
+#flash.go{animation:flashA .5s ease-out}
+@keyframes flashA{0%{opacity:1}100%{opacity:0}}
+
+/* ---------- layers ---------- */
+.layer{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;z-index:10}
+.hidden{display:none!important}
+
+/* ---------- shared bits ---------- */
+.kicker{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.35em;color:var(--cyan);text-transform:uppercase;opacity:.9}
+.btn{
+  margin-top:26px;padding:14px 36px;font-size:15px;letter-spacing:.24em;text-transform:uppercase;
+  font-family:ui-monospace,Menlo,monospace;color:var(--ink);
+  background:linear-gradient(180deg,rgba(80,216,255,.14),rgba(80,216,255,.05));
+  border:1px solid rgba(80,216,255,.55);border-radius:8px;cursor:pointer;
+  transition:all .15s ease; text-shadow:0 0 12px rgba(80,216,255,.5);
+}
+.btn:hover{background:rgba(80,216,255,.22);box-shadow:0 0 24px rgba(80,216,255,.35);transform:translateY(-1px)}
+.btn.ghost{border-color:rgba(125,147,166,.4);background:transparent;text-shadow:none;color:var(--dim)}
+.btn.ghost:hover{color:var(--ink);box-shadow:none;background:rgba(125,147,166,.08)}
+.btn.sm{padding:9px 18px;font-size:12px;margin-top:0}
+
+/* ---------- title ---------- */
+#title h1{
+  font-size:clamp(44px,9vw,92px);font-weight:800;letter-spacing:.08em;line-height:1;
+  background:linear-gradient(100deg,var(--warm) 0%,var(--mag) 45%,var(--cyan) 90%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 30px rgba(140,120,255,.25));
+  margin:14px 0 10px;
+}
+#title .tag{font-size:clamp(15px,2.4vw,19px);color:var(--ink);opacity:.92;letter-spacing:.04em}
+#title .premise{max-width:520px;margin-top:22px;color:var(--dim);font-size:15px;line-height:1.65}
+#title .premise b{color:var(--ink);font-weight:600}
+#title .foot{position:absolute;bottom:22px;left:0;right:0;color:var(--dim);font-size:12px;letter-spacing:.06em;opacity:.75}
+#besttag{margin-top:14px;font-size:12px;letter-spacing:.2em;color:var(--dim)}
+
+/* ---------- act intro ---------- */
+#actintro .act-num{font-size:13px}
+#actintro h2{font-size:clamp(30px,6vw,52px);letter-spacing:.14em;margin:12px 0 16px;font-weight:700}
+#actintro p{max-width:560px;color:var(--dim);font-size:16px;line-height:1.7}
+#actintro p b{color:var(--ink);font-weight:600}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px;z-index:8;pointer-events:none;font-family:ui-monospace,Menlo,monospace}
+.hudbox{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#hud .lbl{font-size:10px;letter-spacing:.25em;color:var(--dim);text-transform:uppercase}
+#hud .val{font-size:17px;color:var(--ink);margin-top:2px}
+#hud #roundval span{color:var(--cyan)}
+#hudright{display:flex;gap:10px;align-items:stretch}
+#streakbox.hot .val{color:#ffd166;text-shadow:0 0 14px rgba(255,209,102,.6)}
+#potential{color:var(--dim);font-size:11px;margin-top:2px}
+#mutebtn{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--dim);cursor:pointer;font-size:15px;padding:8px 12px}
+#mutebtn:hover{color:var(--ink)}
+
+/* ---------- bottom dock: cards + slider ---------- */
+#dock{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 14px calc(14px + env(safe-area-inset-bottom))}
+#cards{display:grid;grid-template-columns:repeat(4,minmax(120px,168px));gap:10px;width:100%;max-width:720px}
+@media(max-width:620px){#cards{grid-template-columns:repeat(2,1fr)}}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:11px 12px 10px;cursor:pointer;text-align:left;color:var(--ink);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:transform .12s ease,border-color .12s,box-shadow .12s;
+  position:relative;
+}
+.card .key{position:absolute;top:7px;right:9px;font-size:10px;color:var(--dim);font-family:ui-monospace,Menlo,monospace;border:1px solid rgba(125,147,166,.3);border-radius:4px;padding:1px 5px}
+.card h3{font-size:14px;letter-spacing:.05em;font-weight:700}
+.card p{font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.35}
+.card:hover{transform:translateY(-2px);border-color:rgba(80,216,255,.6);box-shadow:0 6px 22px rgba(0,0,0,.4),0 0 18px rgba(80,216,255,.12)}
+.card.wrong{animation:shake .35s ease;border-color:rgba(255,90,90,.7);opacity:.38;pointer-events:none}
+.card.right{border-color:rgba(110,255,190,.9);box-shadow:0 0 26px rgba(110,255,190,.35)}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+
+#sliderwrap{width:100%;max-width:720px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 16px 14px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+#sliderlabel{display:flex;justify-content:space-between;align-items:baseline;font-family:ui-monospace,Menlo,monospace;margin-bottom:8px}
+#sliderlabel .l{font-size:10px;letter-spacing:.28em;color:var(--dim);text-transform:uppercase}
+#wreadout{font-size:14px;color:var(--cyan)}
+#track{position:relative;height:26px;cursor:pointer;touch-action:none}
+#trackbar{position:absolute;left:0;right:0;top:11px;height:4px;border-radius:2px;
+  background:linear-gradient(90deg,#ff7a3a,#d8629f 35%,#bb55ee 55%,#50d8ff 100%);
+  box-shadow:0 0 10px rgba(140,120,255,.35)}
+#thumb{position:absolute;top:1px;width:24px;height:24px;margin-left:-12px;border-radius:50%;
+  border:2px solid #fff;background:rgba(4,6,12,.6);
+  box-shadow:0 0 14px rgba(255,255,255,.55),inset 0 0 8px rgba(255,255,255,.35);pointer-events:none}
+#scanhint{position:absolute;top:-34px;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:.2em;color:var(--cyan);font-family:ui-monospace,Menlo,monospace;animation:pulse 1.4s ease-in-out infinite;white-space:nowrap;text-transform:uppercase}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* ---------- reveal panel ---------- */
+#reveal{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;justify-content:center;padding:0 14px calc(16px + env(safe-area-inset-bottom))}
+#revealbox{width:100%;max-width:720px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);text-align:center}
+#revealverdict{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.3em;text-transform:uppercase}
+#revealverdict.good{color:#6effbe}#revealverdict.bad{color:#ff8f6e}
+#revealname{font-size:26px;font-weight:800;letter-spacing:.06em;margin:6px 0 2px}
+#revealpts{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#ffd166;margin-bottom:8px}
+#revealexp{color:var(--dim);font-size:14.5px;line-height:1.6;max-width:600px;margin:0 auto 14px}
+#revealexp b{color:var(--ink)}
+
+/* ---------- results ---------- */
+#results h2{font-size:14px}
+#finalscore{font-size:clamp(54px,10vw,96px);font-weight:800;letter-spacing:.04em;margin:10px 0 4px;color:var(--ink);text-shadow:0 0 40px rgba(80,216,255,.35)}
+#rank{font-size:clamp(20px,4vw,30px);letter-spacing:.3em;font-weight:700;text-transform:uppercase;
+  background:linear-gradient(90deg,var(--warm),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+#rankblurb{color:var(--dim);margin-top:14px;max-width:480px;font-size:15px;line-height:1.6}
+#resultbtns{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap;justify-content:center}
+#copied{font-size:12px;color:#6effbe;margin-top:12px;opacity:0;transition:opacity .3s}
+
+/* ---------- museum ---------- */
+#museumbar{position:fixed;top:0;left:0;right:0;z-index:9;display:flex;flex-direction:column;gap:8px;align-items:center;padding:14px}
+#museumbar .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.chip{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;letter-spacing:.08em;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--dim);cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.chip:hover{color:var(--ink)}
+.chip.on{color:var(--bg);background:var(--cyan);border-color:var(--cyan);font-weight:700}
+.chip.spin.on{background:var(--mag);border-color:var(--mag);color:#fff}
+#museumnote{position:fixed;bottom:calc(96px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:var(--dim);font-size:12.5px;z-index:8;pointer-events:none;padding:0 20px}
+
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 18px;font-size:13px;color:var(--ink);opacity:0;transition:opacity .3s;pointer-events:none;backdrop-filter:blur(8px)}
+
+.fadein{animation:fadeIn .5s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vignette"></div>
+<div id="flash"></div>
+
+<!-- TITLE -->
+<div class="layer" id="title">
+  <div class="kicker">cross-section identification unit</div>
+  <h1>HYPERSCAN</h1>
+  <div class="tag">learn to see in four dimensions</div>
+  <div class="premise">A shape from a higher dimension is passing through your world.
+    You can only see <b>one thin slice of it at a time</b>.<br>
+    Scan it. Know it.</div>
+  <button class="btn" id="startbtn">Start scan</button>
+  <div id="besttag"></div>
+  <div class="foot">drag to look around &nbsp;·&nbsp; scroll or drag the slider to scan &nbsp;·&nbsp; keys 1–4 answer</div>
+</div>
+
+<!-- ACT INTRO -->
+<div class="layer hidden" id="actintro">
+  <div class="kicker act-num" id="actnum"></div>
+  <h2 id="actname"></h2>
+  <p id="actdesc"></p>
+  <button class="btn" id="actbtn">Begin</button>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hudbox">
+    <div class="lbl" id="acttag">ACT I · FLATLAND</div>
+    <div class="val" id="roundval">ROUND <span>1/10</span></div>
+  </div>
+  <div id="hudright">
+    <div class="hudbox" id="streakbox"><div class="lbl">streak</div><div class="val" id="streakval">0</div></div>
+    <div class="hudbox"><div class="lbl">score</div><div class="val" id="scoreval">0</div><div id="potential">+1000</div></div>
+    <button id="mutebtn" title="toggle sound">♪</button>
+  </div>
+</div>
+
+<!-- DOCK: answer cards + scan slider -->
+<div id="dock" class="hidden">
+  <div id="cards"></div>
+  <div id="sliderwrap">
+    <div id="sliderlabel">
+      <span class="l" id="axisname">scan · w axis</span>
+      <span id="wreadout" class="mono">w = +0.00</span>
+    </div>
+    <div id="track">
+      <div id="scanhint" class="hidden">◄ drag to scan ►</div>
+      <div id="trackbar"></div>
+      <div id="thumb"></div>
+    </div>
+  </div>
+</div>
+
+<!-- REVEAL -->
+<div id="reveal" class="hidden">
+  <div id="revealbox" class="fadein">
+    <div id="revealverdict"></div>
+    <div id="revealname"></div>
+    <div id="revealpts"></div>
+    <div id="revealexp"></div>
+    <button class="btn sm" id="nextbtn">Continue →</button>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="layer hidden" id="results">
+  <h2 class="kicker">scan complete · final score</h2>
+  <div id="finalscore">0</div>
+  <div id="rank"></div>
+  <div id="rankblurb"></div>
+  <div id="resultbtns">
+    <button class="btn sm" id="againbtn">Play again</button>
+    <button class="btn sm" id="museumbtn">Enter the museum</button>
+    <button class="btn sm ghost" id="sharebtn">Copy score</button>
+  </div>
+  <div id="copied">copied ✓</div>
+</div>
+
+<!-- MUSEUM -->
+<div id="museumbar" class="hidden">
+  <div class="row" id="museumshapes"></div>
+  <div class="row">
+    <button class="chip spin" data-plane="xw">↻ XW</button>
+    <button class="chip spin" data-plane="yw">↻ YW</button>
+    <button class="chip spin" data-plane="zw">↻ ZW</button>
+    <button class="chip spin" data-plane="xy">↻ XY</button>
+    <button class="chip" id="viewtoggle">view: slice</button>
+    <button class="chip" id="exitmuseum">✕ exit</button>
+  </div>
+</div>
+<div id="museumnote" class="hidden"></div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   HYPERSCAN — a game about seeing in 4D
+   Every shape is a point cloud sampled on its boundary.
+   Slicing, tilting and projecting are the same few lines of math.
+   ============================================================ */
+
+const TAU = Math.PI * 2;
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const R = Math.random;
+
+/* ---------- gaussian sampler ---------- */
+let gaussSpare = null;
+function gauss() {
+  if (gaussSpare !== null) { const v = gaussSpare; gaussSpare = null; return v; }
+  let u, v, s;
+  do { u = R() * 2 - 1; v = R() * 2 - 1; s = u * u + v * v; } while (s >= 1 || s === 0);
+  const m = Math.sqrt(-2 * Math.log(s) / s);
+  gaussSpare = v * m;
+  return u * m;
+}
+
+/* ---------- color: w ∈ [-1,1] → warm→magenta→cool ---------- */
+const NCOL = 64;
+function wRGB(t) { // t in [0,1], quadratic bezier warm→magenta→cyan
+  const A = [255, 128, 64], M = [200, 84, 235], B = [80, 214, 255];
+  const u = 1 - t;
+  return [0, 1, 2].map(i => Math.round(u * u * A[i] + 2 * u * t * M[i] + t * t * B[i]));
+}
+const SPR = 40, SPRH = SPR / 2;   // sprite size
+const sprites = [];
+for (let i = 0; i < NCOL; i++) {
+  const [r, g, b] = wRGB(i / (NCOL - 1));
+  const cv = document.createElement('canvas'); cv.width = cv.height = SPR;
+  const g2 = cv.getContext('2d');
+  const grad = g2.createRadialGradient(SPRH, SPRH, 0, SPRH, SPRH, SPRH);
+  grad.addColorStop(0, `rgba(255,255,255,.95)`);
+  grad.addColorStop(.22, `rgba(${r},${g},${b},.85)`);
+  grad.addColorStop(.55, `rgba(${r},${g},${b},.28)`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  g2.fillStyle = grad; g2.fillRect(0, 0, SPR, SPR);
+  sprites.push(cv);
+}
+const colIdx = w => clamp(Math.round((w + 1) * 0.5 * (NCOL - 1)), 0, NCOL - 1);
+const WMAX = 1.15; // slider range
+
+/* ============================================================
+   SHAPE GENERATORS — each fills out[0..3] with a boundary point
+   ============================================================ */
+function onSphere2(r, o, k) { // random point on S² * r → o[k..k+2]
+  let x = gauss(), y = gauss(), z = gauss();
+  const n = r / Math.hypot(x, y, z);
+  o[k] = x * n; o[k + 1] = y * n; o[k + 2] = z * n;
+}
+function inBall3(r, o, k) {
+  onSphere2(r * Math.cbrt(R()), o, k);
+}
+
+const SHAPES3 = {
+  sphere: { name: 'Sphere', tag: 'perfectly round', n: 20000,
+    exp: 'Circles that grow, peak at the equator, and shrink — <b>slowly near the middle, fast at the ends</b>. Roundness in every slice.',
+    gen(o) { onSphere2(.85, o, 0); o[3] = 0; } },
+  cube: { name: 'Cube', tag: 'six square faces', n: 20000,
+    exp: 'The <b>exact same square in every slice</b>, then — gone. That is what “extruded” looks like from the inside.',
+    gen(o) { const h = .68, f = (R() * 6) | 0, a = f >> 1, s = (f & 1) ? h : -h;
+      let u = (R() * 2 - 1) * h, v = (R() * 2 - 1) * h;
+      if (R() < .3) { if (R() < .5) u = R() < .5 ? h : -h; else v = R() < .5 ? h : -h; } // edge bias
+      if (a === 0) { o[0] = s; o[1] = u; o[2] = v; } else if (a === 1) { o[0] = u; o[1] = s; o[2] = v; } else { o[0] = u; o[1] = v; o[2] = s; }
+      o[3] = 0; } },
+  cone: { name: 'Cone', tag: 'circle, tapering to a point', n: 20000,
+    exp: 'Circles shrinking <b>at a steady rate</b> down to a point. The constant slope is the giveaway — a sphere shrinks gently, then suddenly.',
+    gen(o) { const rr = .8, zTop = .85, zBot = -.85;
+      if (R() < .68) { const t = Math.sqrt(R()), th = R() * TAU;
+        o[0] = Math.cos(th) * rr * t; o[1] = Math.sin(th) * rr * t; o[2] = zTop + (zBot - zTop) * t;
+      } else { const th = R() * TAU, t = Math.sqrt(R());
+        o[0] = Math.cos(th) * rr * t; o[1] = Math.sin(th) * rr * t; o[2] = zBot; }
+      o[3] = 0; } },
+  cylinder: { name: 'Cylinder', tag: 'a circle, extruded', n: 20000,
+    exp: 'The <b>same circle all the way through</b>, with solid disc flashes at both ends. A circle dragged along the hidden axis.',
+    gen(o) { const rr = .7, h = .8;
+      if (R() < .69) { const th = R() * TAU;
+        o[0] = Math.cos(th) * rr; o[1] = Math.sin(th) * rr; o[2] = (R() * 2 - 1) * h;
+      } else { const th = R() * TAU, t = Math.sqrt(R());
+        o[0] = Math.cos(th) * rr * t; o[1] = Math.sin(th) * rr * t; o[2] = R() < .5 ? h : -h; }
+      o[3] = 0; } },
+  pyramid: { name: 'Pyramid', tag: 'square, tapering to a point', n: 20000,
+    exp: 'Squares shrinking steadily to a point. Like the cone — <b>but with corners</b>. Slices keep the cross-section’s shape.',
+    gen(o) { const h = .75, zTop = .85, zBot = -.75;
+      if (R() < .7) { const t = Math.sqrt(R()), e = (R() * 4) | 0, u = (R() * 2 - 1);
+        let x, y;
+        if (e === 0) { x = u; y = 1; } else if (e === 1) { x = u; y = -1; } else if (e === 2) { x = 1; y = u; } else { x = -1; y = u; }
+        o[0] = x * h * t; o[1] = y * h * t; o[2] = zTop + (zBot - zTop) * t;
+      } else { o[0] = (R() * 2 - 1) * h; o[1] = (R() * 2 - 1) * h; o[2] = zBot; }
+      o[3] = 0; } },
+  torus: { name: 'Torus', tag: 'the donut', n: 20000,
+    exp: 'Two concentric circles that merge into one at the top and bottom. <b>The hole never lies.</b>',
+    gen(o) { const Rr = .56, rr = .36;
+      let th, ph;
+      do { ph = R() * TAU; } while (R() > (Rr + rr * Math.cos(ph)) / (Rr + rr));
+      th = R() * TAU;
+      const d = Rr + rr * Math.cos(ph);
+      o[0] = Math.cos(th) * d; o[1] = Math.sin(th) * d; o[2] = rr * Math.sin(ph) * 1.7;
+      o[3] = 0; } },
+};
+
+const SHAPES4 = {
+  glome: { name: 'Hypersphere', tag: 'round in all four directions', n: 40000,
+    exp: 'Spheres that swell, peak, and shrink — <b>slowly at the middle, fast at the ends</b>, exactly like the circles of a sliced sphere, one dimension up.',
+    gen(o) { let x = gauss(), y = gauss(), z = gauss(), w = gauss();
+      const n = .92 / Math.hypot(x, y, z, w);
+      o[0] = x * n; o[1] = y * n; o[2] = z * n; o[3] = w * n; } },
+  tesseract: { name: 'Tesseract', tag: 'a cube of cubes', n: 62000,
+    exp: 'The <b>same hollow cube in every slice</b>, with solid-cube flashes at both ends — a cube extruded along a direction that is not up, sideways, or forward.',
+    gen(o) { const h = .62, c = (R() * 8) | 0, a = c >> 1, s = (c & 1) ? h : -h;
+      const q = [(R() * 2 - 1) * h, (R() * 2 - 1) * h, (R() * 2 - 1) * h];
+      const r0 = R();
+      if (r0 < .3) { // pin 1 free coord → 2D faces (slice to edges)
+        q[(R() * 3) | 0] = R() < .5 ? h : -h;
+      } else if (r0 < .52) { // pin 2 → edges (slice to corners)
+        const keep = (R() * 3) | 0;
+        for (let i = 0; i < 3; i++) if (i !== keep) q[i] = R() < .5 ? h : -h;
+      }
+      q.splice(a, 0, s);
+      o[0] = q[0]; o[1] = q[1]; o[2] = q[2]; o[3] = q[3]; } },
+  hypercone: { name: 'Hypercone', tag: 'a ball, tapering to a point', n: 40000,
+    exp: 'Spheres shrinking <b>at a constant rate</b> down to a single point. A cone whose base is not a disc but a solid ball.',
+    gen(o) { const rr = .88;
+      if (R() < .7) { const s = Math.cbrt(R());
+        onSphere2(rr * s, o, 0); o[3] = 1 - 2 * s;
+      } else { inBall3(rr, o, 0); o[3] = -1; } } },
+  spherinder: { name: 'Spherinder', tag: 'a ball, extruded along W', n: 40000,
+    exp: 'One <b>unchanging sphere</b> for the whole scan, then solid-ball flashes at both ends. A ball dragged along the W axis.',
+    gen(o) { const rr = .72, h = .82;
+      if (R() < .66) { onSphere2(rr, o, 0); o[3] = (R() * 2 - 1) * h; }
+      else { inBall3(rr, o, 0); o[3] = R() < .5 ? h : -h; } } },
+  duocyl: { name: 'Duocylinder', tag: 'circle × circle', n: 44000,
+    exp: 'A cylinder whose <b>height shrinks as you scan</b>, flattening into a disc. Two circles multiplied together — one lives in XY, the other in ZW.',
+    gen(o) { const r1 = .78, r2 = .82;
+      if (R() < .16) { // the ridge where the two solids meet (slice to crisp rims)
+        const th = R() * TAU, ph = R() * TAU;
+        o[0] = Math.cos(th) * r1; o[1] = Math.sin(th) * r1;
+        o[2] = Math.cos(ph) * r2; o[3] = Math.sin(ph) * r2;
+        return;
+      }
+      if (R() < .5) { const th = R() * TAU, t = Math.sqrt(R()), ph = R() * TAU;
+        o[0] = Math.cos(th) * r1; o[1] = Math.sin(th) * r1;
+        o[2] = Math.cos(ph) * r2 * t; o[3] = Math.sin(ph) * r2 * t;
+      } else { const th = R() * TAU, t = Math.sqrt(R()), ph = R() * TAU;
+        o[0] = Math.cos(th) * r1 * t; o[1] = Math.sin(th) * r1 * t;
+        o[2] = Math.cos(ph) * r2; o[3] = Math.sin(ph) * r2; } } },
+  pentachoron: { name: '5-cell', tag: 'the 4D tetrahedron · 5 corners', n: 52000,
+    exp: 'A tetrahedron that grows from a point, then <b>ends abruptly in a flat face</b> — the simplest possible 4D shape. Five corners, none wasted.',
+    gen(o) {
+      const V = SHAPES4.pentachoron._v || (SHAPES4.pentachoron._v = (() => {
+        const s = Math.sqrt(15) / 4, k = 1 / Math.sqrt(3), sc = .95;
+        const t = [[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]].map(v => v.map(c => c * k * s));
+        const vs = t.map(v => [v[0], v[1], v[2], -.25]);
+        vs.push([0, 0, 0, 1]);
+        return vs.map(v => v.map(c => c * sc));
+      })());
+      const r0 = R();
+      if (r0 < .24) { // the 10 edges (slice to corners)
+        const a = (R() * 5) | 0; let b = (R() * 4) | 0; if (b >= a) b++;
+        const t = R();
+        for (let j = 0; j < 4; j++) o[j] = lerp(V[a][j], V[b][j], t);
+        return;
+      }
+      if (r0 < .55) { // the 10 triangle faces (slice to edges)
+        const pick = [0, 1, 2, 3, 4]; shuffle(pick);
+        let a = -Math.log(R()), b = -Math.log(R()), c = -Math.log(R());
+        const s = a + b + c; a /= s; b /= s; c /= s;
+        for (let j = 0; j < 4; j++)
+          o[j] = a * V[pick[0]][j] + b * V[pick[1]][j] + c * V[pick[2]][j];
+        return;
+      }
+      const skip = (R() * 5) | 0, idx = [];
+      for (let i = 0; i < 5; i++) if (i !== skip) idx.push(i);
+      let a = -Math.log(R()), b = -Math.log(R()), c = -Math.log(R()), d = -Math.log(R());
+      const s = a + b + c + d; a /= s; b /= s; c /= s; d /= s;
+      for (let j = 0; j < 4; j++)
+        o[j] = a * V[idx[0]][j] + b * V[idx[1]][j] + c * V[idx[2]][j] + d * V[idx[3]][j];
+    } },
+};
+
+/* ---------- cloud building ---------- */
+function buildCloud(def, tilt) {
+  const n = def.n, p = new Float32Array(n * 4), o = [0, 0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    def.gen(o);
+    p[i * 4] = o[0]; p[i * 4 + 1] = o[1]; p[i * 4 + 2] = o[2]; p[i * 4 + 3] = o[3];
+  }
+  if (tilt) for (const [i, j, ang] of tilt) rotCloud(p, i, j, ang);
+  return p;
+}
+function rotCloud(p, i, j, ang) {
+  const c = Math.cos(ang), s = Math.sin(ang);
+  for (let k = 0; k < p.length; k += 4) {
+    const a = p[k + i], b = p[k + j];
+    p[k + i] = c * a - s * b; p[k + j] = s * a + c * b;
+  }
+}
+const cloudCache = new Map();
+function getCloud(key, def, tilt) {
+  if (!cloudCache.has(key)) cloudCache.set(key, buildCloud(def, tilt));
+  return cloudCache.get(key);
+}
+
+/* ============================================================
+   RENDERER
+   ============================================================ */
+const cv = $('c'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 1.75);
+  W = cv.width = Math.round(innerWidth * DPR);
+  H = cv.height = Math.round(innerHeight * DPR);
+}
+addEventListener('resize', resize); resize();
+
+const view = { yaw: .6, pitch: .32, autoYaw: true };
+let quality = 1;          // point stride (1 = all)
+let emaDt = 16;
+const FORCEQ = +(new URLSearchParams(location.search).get('q') || 0);
+
+/* compose plane rotations [[i,j,angle],...] into a 4x4 matrix (column-vector convention) */
+function buildRot4(list) {
+  const m = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+  for (const [i, j, a] of list) {
+    const c = Math.cos(a), s = Math.sin(a);
+    for (let col = 0; col < 4; col++) {
+      const vi = m[i * 4 + col], vj = m[j * 4 + col];
+      m[i * 4 + col] = c * vi - s * vj;
+      m[j * 4 + col] = s * vi + c * vj;
+    }
+  }
+  return m;
+}
+
+/* render one cloud.
+   mode: 'slice2d' | 'slice3d' | 'proj3d' | 'proj4d'
+   w0: slice position; rot4: [[i,j,angle],...] applied per point */
+function renderCloud(p, mode, w0, rot4, dimBoost, alphaMul) {
+  const am = alphaMul || 1;
+  const cx = W / 2, cyh = H * 0.44;
+  const scale = Math.min(W, H) * (mode === 'slice2d' ? .34 : .31);
+  const eps = mode === 'slice2d' ? .06 : .08;
+  const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw);
+  const cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  const m = rot4 ? buildRot4(rot4) : null;
+  const persp = 3.4, sz0 = (mode === 'slice2d' ? 4.4 : 3.6) * DPR * (dimBoost || 1);
+  ctx.globalCompositeOperation = 'lighter';
+  // projection modes draw every surviving point — halve the budget there,
+  // and normalize additive alpha by expected sprite coverage of the shape's
+  // screen area, so dense clouds on small screens don't blow out to white
+  const isProj = mode === 'proj4d' || mode === 'proj3d';
+  const step = 4 * quality * (isProj ? 2 : 1);
+  const overlap = (p.length / step) * sz0 * sz0 * 4 / (scale * scale);
+  const dens = isProj ? clamp(20 / overlap, .22, 1) : 1;
+  for (let k = 0; k < p.length; k += step) {
+    let x = p[k], y = p[k + 1], z = p[k + 2], w = p[k + 3];
+    if (m) {
+      const nx = m[0]*x + m[1]*y + m[2]*z + m[3]*w;
+      const ny = m[4]*x + m[5]*y + m[6]*z + m[7]*w;
+      const nz = m[8]*x + m[9]*y + m[10]*z + m[11]*w;
+      const nw = m[12]*x + m[13]*y + m[14]*z + m[15]*w;
+      x = nx; y = ny; z = nz; w = nw;
+    }
+    let bright, ci;
+    if (mode === 'slice2d') {
+      const dw = z - w0; if (dw > eps || dw < -eps) continue;
+      bright = 1 - Math.abs(dw) / eps; ci = colIdx(z);
+      const px = cx + x * scale, py = cyh - y * scale;
+      ctx.globalAlpha = .32 + .55 * bright * bright;
+      const r = sz0 * (0.85 + .55 * bright);
+      ctx.drawImage(sprites[ci], px - r, py - r, r * 2, r * 2);
+      continue;
+    }
+    if (mode === 'slice3d') {
+      const dw = w - w0; if (dw > eps || dw < -eps) continue;
+      bright = 1 - Math.abs(dw) / eps; ci = colIdx(w);
+    } else if (mode === 'proj4d') {
+      const f = 1.5 / (2.45 - w);
+      x *= f; y *= f; z *= f;
+      bright = .75; ci = colIdx(w);
+    } else { // proj3d
+      bright = .72; ci = colIdx(z);
+    }
+    // 3D view rotation: yaw about Y, pitch about X
+    let x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
+    let y1 = y * cp - z1 * sp; z1 = y * sp + z1 * cp;
+    const pf = persp / (persp - z1);
+    if (pf < 0) continue;
+    const px = cx + x1 * scale * pf, py = cyh - y1 * scale * pf;
+    ctx.globalAlpha = (.3 + .55 * bright * bright) * clamp(pf * pf * .8, .3, 1.15) * dens * am;
+    const r = sz0 * pf * (0.7 + .5 * bright);
+    ctx.drawImage(sprites[ci], px - r, py - r, r * 2, r * 2);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/* faint background grid — the “world” you live in */
+function drawBG(flat) {
+  ctx.fillStyle = '#04060c'; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2, cyh = H * .44, s = Math.min(W, H) * .33;
+  ctx.strokeStyle = 'rgba(80,160,220,.05)'; ctx.lineWidth = DPR;
+  ctx.beginPath();
+  if (flat) {
+    for (let i = -4; i <= 4; i++) {
+      ctx.moveTo(cx + i * s * .45, cyh - s * 1.35); ctx.lineTo(cx + i * s * .45, cyh + s * 1.35);
+      ctx.moveTo(cx - s * 1.8, cyh + i * s * .45); ctx.lineTo(cx + s * 1.8, cyh + i * s * .45);
+    }
+  } else {
+    // subtle horizon ellipse floor
+    for (let i = 1; i <= 3; i++) {
+      ctx.ellipse(cx, cyh + s * .9, s * .55 * i, s * .16 * i, 0, 0, TAU);
+    }
+  }
+  ctx.stroke();
+}
+
+/* ============================================================
+   AUDIO — tiny WebAudio blips
+   ============================================================ */
+let AC = null, muted = localStorage.hsMuted === '1';
+function ac() { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); return AC; }
+function tone(freq, dur, type, vol, when, slide) {
+  if (muted) return;
+  try {
+    const a = ac(), t = a.currentTime + (when || 0);
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol || .12, t + .012);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t + dur + .05);
+  } catch (e) {}
+}
+const sndClick = () => tone(700, .08, 'sine', .07);
+const sndRight = () => { tone(660, .14, 'sine', .1); tone(880, .18, 'sine', .1, .09); tone(1320, .3, 'sine', .08, .18); };
+const sndWrong = () => tone(160, .28, 'sawtooth', .07, 0, 110);
+const sndSweep = () => tone(300, .5, 'sine', .04, 0, 900);
+$('mutebtn').textContent = muted ? '✕' : '♪';
+$('mutebtn').onclick = () => { muted = !muted; localStorage.hsMuted = muted ? '1' : '0'; $('mutebtn').textContent = muted ? '✕' : '♪'; };
+
+/* ============================================================
+   GAME STATE
+   ============================================================ */
+const ACTS = [
+  { tag: 'ACT I · FLATLAND', name: 'FLATLAND', axis: 'z', flat: true, rounds: 3, pool: Object.keys(SHAPES3), shapes: SHAPES3, tilt: false,
+    num: 'act i of iii — warm-up',
+    desc: 'You are a <b>two-dimensional being</b>. Solid 3D objects are passing through your flat world, and all you can see is where they cross your plane.<br><br>Scrub the scanner through the hidden axis and identify each object from its slices alone.' },
+  { tag: 'ACT II · SPACELAND', name: 'SPACELAND', axis: 'w', flat: false, rounds: 4, pool: Object.keys(SHAPES4), shapes: SHAPES4, tilt: false,
+    num: 'act ii of iii — the real thing',
+    desc: 'Now <b>you</b> are the flatlander. A four-dimensional object is passing through your 3D space. The scanner moves you along the <b>W axis</b> — perpendicular to every direction you know.<br><br>Point color encodes W. Drag to look around your slice.' },
+  { tag: 'ACT III · TILTED', name: 'TILTED', axis: 'w', flat: false, rounds: 3, pool: Object.keys(SHAPES4), shapes: SHAPES4, tilt: true,
+    num: 'act iii of iii — no more training wheels',
+    desc: 'The same hyperobjects — but now <b>rotated in 4D</b>. Familiar shapes cast unfamiliar slices when they come through at an angle.<br><br>Trust what you learned, not what you expect.' },
+];
+const RANKS = [
+  [0, 'POINTLANDER', 'You perceive a single point of the universe. It’s a start — even a point contains multitudes. Well, no, it doesn’t. Play again.'],
+  [2600, 'FLATLANDER', 'You’ve mastered slices of the third dimension. The fourth still slips through your fingers — mostly because your fingers are three-dimensional.'],
+  [5200, 'SPACE CADET', 'Solid grasp of hyperspace fundamentals. You can tell a tesseract from a glome at twenty paces.'],
+  [7800, 'HYPERNAUT', 'You navigate the W axis like a local. Flatlanders tell their children stories about you.'],
+  [9800, 'HYPERBEING', 'You see all of us as we truly are: thin, wobbly slices. Please be gentle with your knowledge.'],
+];
+
+const G = {
+  state: 'title',        // title | actintro | scan | reveal | results | museum
+  act: 0, round: 0, totalRound: 0,
+  score: 0, streak: 0, best: +(localStorage.hsBest || 0),
+  order: [],             // shape keys for current act
+  answer: null, cloud: null, roundDef: null,
+  w: 0, wTarget: 0, sweep: -1,   // sweep: animation t, -1 = off
+  roundStart: 0, potential: 1000, wrongs: 0,
+  revealT: 0, gained: 0,
+  museum: { key: 'tesseract', spins: {}, angles: { xw: 0, yw: 0, zw: 0, xy: 0 }, mode: 'slice' },
+  seenHint: false,
+};
+const TOTAL_ROUNDS = ACTS.reduce((a, x) => a + x.rounds, 0);
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (R() * (i + 1)) | 0;[a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* ---------- UI helpers ---------- */
+function show(id, on) { $(id).classList.toggle('hidden', !on); }
+function setLayers(...ids) {
+  ['title', 'actintro', 'hud', 'dock', 'reveal', 'results', 'museumbar', 'museumnote'].forEach(x => show(x, ids.includes(x)));
+}
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.style.opacity = 1;
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = 0, 1800);
+}
+
+/* ---------- flow ---------- */
+function startGame() {
+  G.score = 0; G.streak = 0; G.act = 0; G.totalRound = 0;
+  sndClick(); startAct();
+}
+function startAct() {
+  const act = ACTS[G.act];
+  G.round = 0;
+  G.order = shuffle(act.pool.slice()).slice(0, act.rounds);
+  $('actnum').textContent = act.num;
+  $('actname').textContent = act.name;
+  $('actdesc').innerHTML = act.desc;
+  G.state = 'actintro';
+  setLayers('actintro');
+}
+function tiltFor(key) {
+  // deterministic-ish per round but random per game
+  return [[0, 3, .55 + R() * .5], [1, 3, .4 + R() * .45], [2, 3, .3 + R() * .4], [0, 1, R() * .8]];
+}
+function startRound() {
+  const act = ACTS[G.act];
+  const key = G.order[G.round];
+  G.answer = key;
+  G.roundDef = act.shapes[key];
+  const cacheKey = act.tilt ? key + ':tilt' + G.totalRound : (act.flat ? key + ':3d' : key);
+  if (act.tilt) cloudCache.delete(cacheKey);
+  G.cloud = getCloud(cacheKey, G.roundDef, act.tilt ? tiltFor(key) : null);
+  G.w = -WMAX; G.wTarget = -WMAX; G.sweep = 0;
+  G.roundStart = performance.now(); G.potential = 1000; G.wrongs = 0;
+  view.yaw = .6; view.pitch = .32; view.autoYaw = true;
+
+  // answer cards: correct + 3 distractors
+  const others = shuffle(act.pool.filter(k => k !== key)).slice(0, 3);
+  const opts = shuffle([key, ...others]);
+  const cards = $('cards'); cards.innerHTML = '';
+  opts.forEach((k, i) => {
+    const d = act.shapes[k];
+    const el = document.createElement('button');
+    el.className = 'card fadein'; el.style.animationDelay = (i * 60) + 'ms';
+    el.innerHTML = `<span class="key">${i + 1}</span><h3>${d.name}</h3><p>${d.tag}</p>`;
+    el.onclick = () => guess(k, el);
+    el.dataset.key = k;
+    cards.appendChild(el);
+  });
+
+  $('acttag').textContent = act.tag;
+  $('roundval').innerHTML = `ROUND <span>${G.totalRound + 1}/${TOTAL_ROUNDS}</span>`;
+  $('axisname').textContent = `scan · ${act.axis} axis`;
+  show('scanhint', !G.seenHint);
+  G.state = 'scan';
+  setLayers('hud', 'dock');
+  sndSweep();
+}
+function guess(key, el) {
+  if (G.state !== 'scan') return;
+  if (key === G.answer) {
+    sndRight();
+    el.classList.add('right');
+    const bonus = G.streak >= 1 ? Math.min(G.streak, 5) * 80 : 0;
+    G.gained = G.potential + bonus;
+    G.score += G.gained;
+    G.streak = G.wrongs === 0 ? G.streak + 1 : 0;
+    $('flash').classList.remove('go'); void $('flash').offsetWidth; $('flash').classList.add('go');
+    setTimeout(() => showReveal(true, bonus), 420);
+  } else {
+    sndWrong();
+    el.classList.add('wrong');
+    G.wrongs++;
+    G.potential = Math.max(100, G.potential - 300);
+    updateHUD();
+  }
+}
+function showReveal(won, bonus) {
+  G.state = 'reveal'; G.revealT = 0;
+  const d = G.roundDef, act = ACTS[G.act];
+  $('revealverdict').textContent = G.wrongs === 0 ? '✓ identified · first try' : `✓ identified · ${G.wrongs} miss${G.wrongs > 1 ? 'es' : ''}`;
+  $('revealverdict').className = G.wrongs === 0 ? 'good' : 'bad';
+  $('revealname').textContent = d.name.toUpperCase();
+  $('revealpts').textContent = `+${G.gained}${bonus ? ` (streak ×${G.streak})` : ''}`;
+  $('revealexp').innerHTML = (act.tilt ? '<b>Tilted in 4D.</b> ' : '') + d.exp +
+    (act.flat ? '' : '') ;
+  setLayers('hud', 'reveal');
+  updateHUD();
+}
+function nextRound() {
+  sndClick();
+  G.round++; G.totalRound++;
+  if (G.round >= ACTS[G.act].rounds) {
+    G.act++;
+    if (G.act >= ACTS.length) return showResults();
+    return startAct();
+  }
+  startRound();
+}
+function showResults() {
+  G.state = 'results';
+  setLayers('results');
+  $('finalscore').textContent = G.score;
+  let rank = RANKS[0];
+  for (const r of RANKS) if (G.score >= r[0]) rank = r;
+  $('rank').textContent = rank[1];
+  $('rankblurb').textContent = rank[2];
+  if (G.score > G.best) { G.best = G.score; localStorage.hsBest = G.score; }
+  G._rank = rank[1];
+}
+function enterMuseum() {
+  sndClick();
+  G.state = 'museum';
+  setLayers('museumbar', 'museumnote', 'dock');
+  $('cards').innerHTML = '';
+  show('scanhint', false);
+  museumPick(G.museum.key);
+  buildMuseumChips();
+}
+function buildMuseumChips() {
+  const row = $('museumshapes'); row.innerHTML = '';
+  for (const k of Object.keys(SHAPES4)) {
+    const b = document.createElement('button');
+    b.className = 'chip' + (k === G.museum.key ? ' on' : '');
+    b.textContent = SHAPES4[k].name;
+    b.onclick = () => { sndClick(); museumPick(k); buildMuseumChips(); };
+    row.appendChild(b);
+  }
+}
+function museumPick(k) {
+  G.museum.key = k;
+  G.cloud = getCloud(k, SHAPES4[k], null);
+  G.museum.angles = { xw: 0, yw: 0, zw: 0, xy: 0 };
+  $('museumnote').textContent = SHAPES4[k].name + ' — ' + SHAPES4[k].tag + '. No timer, no score. Just you and the hyperobject.';
+  $('axisname').textContent = 'scan · w axis';
+}
+document.querySelectorAll('.chip.spin').forEach(b => {
+  b.onclick = () => { sndClick(); const p = b.dataset.plane;
+    G.museum.spins[p] = !G.museum.spins[p];
+    b.classList.toggle('on', !!G.museum.spins[p]); };
+});
+$('viewtoggle').onclick = () => { sndClick();
+  G.museum.mode = G.museum.mode === 'slice' ? 'proj' : 'slice';
+  $('viewtoggle').textContent = 'view: ' + (G.museum.mode === 'slice' ? 'slice' : 'shadow');
+  show('sliderwrap', G.museum.mode === 'slice');
+  $('museumnote').textContent = G.museum.mode === 'proj'
+    ? 'Shadow view: the whole 4D object, perspective-projected into 3D — like a wire cube’s shadow on paper. Color still encodes W.'
+    : SHAPES4[G.museum.key].name + ' — scrub W to slice it.';
+};
+$('exitmuseum').onclick = () => { sndClick(); show('sliderwrap', true); G.state = 'results'; setLayers('results'); };
+
+/* ---------- buttons ---------- */
+$('startbtn').onclick = () => { ac(); startGame(); };
+$('actbtn').onclick = () => { sndClick(); startRound(); };
+$('nextbtn').onclick = nextRound;
+$('againbtn').onclick = startGame;
+$('museumbtn').onclick = enterMuseum;
+$('sharebtn').onclick = async () => {
+  const txt = `HYPERSCAN · ${G.score} pts · rank: ${G._rank} — can you see in 4D?`;
+  try { await navigator.clipboard.writeText(txt); } catch (e) {}
+  $('copied').style.opacity = 1; setTimeout(() => $('copied').style.opacity = 0, 1600);
+  sndClick();
+};
+
+/* ---------- HUD ---------- */
+function updateHUD() {
+  $('scoreval').textContent = G.score;
+  $('streakval').textContent = G.streak;
+  $('streakbox').classList.toggle('hot', G.streak >= 2);
+  $('potential').textContent = '+' + G.potential;
+}
+function updateBest() {
+  $('besttag').textContent = G.best > 0 ? `best score · ${G.best}` : '';
+}
+updateBest();
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+const track = $('track');
+let dragging = null; // 'view' | 'slider'
+function trackToW(clientX) {
+  const r = track.getBoundingClientRect();
+  return clamp(((clientX - r.left) / r.width) * 2 - 1, -1, 1) * WMAX;
+}
+track.addEventListener('pointerdown', e => {
+  dragging = 'slider'; track.setPointerCapture(e.pointerId);
+  G.wTarget = trackToW(e.clientX); G.sweep = -1; hintDone();
+  e.preventDefault();
+});
+track.addEventListener('pointermove', e => {
+  if (dragging === 'slider') G.wTarget = trackToW(e.clientX);
+});
+track.addEventListener('pointerup', () => dragging = null);
+track.addEventListener('pointercancel', () => dragging = null);
+
+let lastPX = 0, lastPY = 0;
+cv.addEventListener('pointerdown', e => {
+  dragging = 'view'; lastPX = e.clientX; lastPY = e.clientY;
+  cv.setPointerCapture(e.pointerId); cv.classList.add('grabbing');
+});
+cv.addEventListener('pointermove', e => {
+  if (dragging !== 'view') return;
+  const act = ACTS[G.act];
+  const flat = G.state === 'scan' && act && act.flat;
+  if (!flat) {
+    view.yaw += (e.clientX - lastPX) * .008;
+    view.pitch = clamp(view.pitch + (e.clientY - lastPY) * .008, -1.4, 1.4);
+    view.autoYaw = false;
+  }
+  lastPX = e.clientX; lastPY = e.clientY;
+});
+cv.addEventListener('pointerup', () => { dragging = null; cv.classList.remove('grabbing'); });
+cv.addEventListener('pointercancel', () => { dragging = null; cv.classList.remove('grabbing'); });
+
+addEventListener('wheel', e => {
+  if (G.state !== 'scan' && !(G.state === 'museum' && G.museum.mode === 'slice')) return;
+  G.wTarget = clamp(G.wTarget + e.deltaY * .0012, -WMAX, WMAX);
+  G.sweep = -1; hintDone();
+}, { passive: true });
+
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft' || e.key === 'a') { G.wTarget = clamp(G.wTarget - .06, -WMAX, WMAX); G.sweep = -1; hintDone(); }
+  if (e.key === 'ArrowRight' || e.key === 'd') { G.wTarget = clamp(G.wTarget + .06, -WMAX, WMAX); G.sweep = -1; hintDone(); }
+  if (G.state === 'scan' && '1234'.includes(e.key)) {
+    const el = $('cards').children[+e.key - 1];
+    if (el && !el.classList.contains('wrong')) el.click();
+  }
+  if (e.key === 'Enter') {
+    if (G.state === 'reveal') nextRound();
+    else if (G.state === 'actintro') { sndClick(); startRound(); }
+    else if (G.state === 'title') { ac(); startGame(); }
+  }
+});
+function hintDone() {
+  if (!G.seenHint) { G.seenHint = true; show('scanhint', false); }
+}
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+let lastT = performance.now();
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(50, t - lastT); lastT = t;
+  emaDt = emaDt * .92 + dt * .08;
+  if (FORCEQ) quality = FORCEQ;
+  else if (emaDt > 24 && quality < 8) quality++;
+  else if (emaDt < 13 && quality > 1) quality--;
+
+  const act = ACTS[Math.min(G.act, ACTS.length - 1)];
+  const st = G.state;
+
+  // w motion: sweep intro or ease to target
+  if (G.sweep >= 0) {
+    G.sweep += dt / 1900;
+    if (G.sweep >= 1) { G.sweep = -1; G.wTarget = 0; }
+    else {
+      const e = G.sweep < .5 ? 2 * G.sweep * G.sweep : 1 - Math.pow(-2 * G.sweep + 2, 2) / 2;
+      G.w = G.wTarget = lerp(-WMAX, WMAX, e);
+    }
+  }
+  G.w += (G.wTarget - G.w) * Math.min(1, dt / 60);
+
+  if (view.autoYaw && !act.flat) view.yaw += dt * .00012;
+
+  // score decay while scanning
+  if (st === 'scan') {
+    const el = (t - G.roundStart) / 1000;
+    if (el > 4) {
+      const p = Math.max(150, Math.round((1000 - (el - 4) * 20) / 10) * 10 - G.wrongs * 300);
+      if (Math.max(100, p) !== G.potential) { G.potential = Math.max(100, p); updateHUD(); }
+    }
+  }
+
+  /* ---- draw ---- */
+  const flat = (st === 'scan' || st === 'reveal') && act.flat;
+  drawBG(flat && st === 'scan');
+
+  if (st === 'title') {
+    // ambient: slowly double-rotating tesseract shadow
+    const c = getCloud('tesseract', SHAPES4.tesseract, null);
+    renderCloud(c, 'proj4d', 0, [[0, 3, t * .00025], [1, 2, t * .00017]], .85, .32);
+  } else if (st === 'actintro') {
+    const c = getCloud('glome', SHAPES4.glome, null);
+    renderCloud(c, 'proj4d', 0, [[0, 3, t * .0002], [1, 2, t * .00013]], .7, .3);
+  } else if (st === 'scan') {
+    renderCloud(G.cloud, act.flat ? 'slice2d' : 'slice3d', G.w, null);
+    drawScanExtras(t, act.flat);
+  } else if (st === 'reveal') {
+    G.revealT += dt;
+    const a = Math.min(1, G.revealT / 800);
+    if (act.flat) renderCloud(G.cloud, 'proj3d', 0, null, a);
+    else renderCloud(G.cloud, 'proj4d', 0, [[0, 3, G.revealT * .0004], [1, 2, G.revealT * .00025]], a);
+    if (view.autoYaw) view.yaw += dt * .0002;
+  } else if (st === 'results') {
+    const c = getCloud('glome', SHAPES4.glome, null);
+    renderCloud(c, 'proj4d', 0, [[0, 3, t * .0002], [2, 3, t * .00012]], .8, .35);
+  } else if (st === 'museum') {
+    const m = G.museum, sp = m.spins, ang = m.angles;
+    for (const pl of ['xw', 'yw', 'zw', 'xy']) if (sp[pl]) ang[pl] += dt * .0004;
+    const P = { xw: [0, 3], yw: [1, 3], zw: [2, 3], xy: [0, 1] };
+    const rot = [];
+    for (const pl in P) if (ang[pl]) rot.push([P[pl][0], P[pl][1], ang[pl]]);
+    if (m.mode === 'slice') renderCloud(G.cloud, 'slice3d', G.w, rot.length ? rot : null);
+    else renderCloud(G.cloud, 'proj4d', 0, rot.length ? rot : null);
+  }
+
+  // slider thumb + readout
+  if (st === 'scan' || st === 'museum') {
+    const r = track.getBoundingClientRect();
+    const frac = (G.w / WMAX + 1) / 2;
+    $('thumb').style.left = (frac * r.width) + 'px';
+    const [cr, cg, cb2] = wRGB(clamp((G.w + 1) / 2, 0, 1));
+    $('thumb').style.borderColor = `rgb(${cr},${cg},${cb2})`;
+    const ax = st === 'museum' ? 'w' : (act.axis || 'w');
+    $('wreadout').textContent = `${ax} = ${(G.w >= 0 ? '+' : '') + G.w.toFixed(2)}`;
+    $('wreadout').style.color = `rgb(${cr},${cg},${cb2})`;
+  }
+}
+/* scanning beam decoration */
+function drawScanExtras(t, flat) {
+  const cx = W / 2, cyh = H * .44, s = Math.min(W, H) * .33;
+  // faint scan ring/plane pulse
+  ctx.strokeStyle = `rgba(120,220,255,${.05 + .03 * Math.sin(t * .004)})`;
+  ctx.lineWidth = DPR;
+  ctx.beginPath();
+  if (flat) ctx.rect(cx - s * 1.45, cyh - s * 1.25, s * 2.9, s * 2.5);
+  else ctx.ellipse(cx, cyh, s * 1.42, s * 1.42, 0, 0, TAU);
+  ctx.stroke();
+}
+requestAnimationFrame(frame);
+
+/* keep title best fresh on replay */
+new MutationObserver(updateBest).observe($('results'), { attributes: true });
+</script>
+</body>
+</html>
