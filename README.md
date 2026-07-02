@@ -1,6 +1,25 @@
 # HYPERSCAN — learn to see in four dimensions
 
-A tiny browser game about building 4D intuition, one cross-section at a time.
+Two tiny browser games about building 4D intuition. No build, no dependencies —
+each game is one self-contained HTML file.
+
+## FIELDWORK (`fieldwork.html`) — a Miegakure-style 4D puzzle
+
+You're a glowing agent in an isometric voxel world — except the world is a **4D
+grid**, and you only see the 3D slice at your current W. Walls, floors, and
+vaults have W-coordinates too: press Q/E to step *kata/ana* along the fourth
+axis, and walk straight through where a wall used to be. Eight levels: walk
+around a wall, rob a hermetically sealed vault, cross a bridge that only exists
+one slice over, and finish in a maze spanning four slices. Faint colored
+wireframes show what exists in the adjacent slices (orange = kata, cyan = ana).
+
+Every level is verified solvable by a BFS solver that runs against the game's
+own movement code (`FW.solve` in the page).
+
+## HYPERSCAN (`index.html`) — the scanner
+
+A shape from a higher dimension is passing through your world, and you see one
+thin slice at a time.
 
 **Premise:** a shape from a higher dimension is passing through your world. You
 can only see one thin slice of it at a time. Scrub the scanner along the hidden
